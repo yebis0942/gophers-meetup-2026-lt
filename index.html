@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ccgoのひみつ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reset.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+<style>
+  /* ベースにした PPTX (960pt × 540pt) の座標をそのまま px として使う */
+  :root {
+    --fg: #181818;
+    --title: #141414;
+    --muted: #646464;
+    --sub: #696969;
+    --rule: #D2D2D2;
+    --panel: #F5F5F5;
+    --bg: #FFFFFF;
+    --sans: "Aptos", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+    --mono: "Consolas", "SFMono-Regular", "Menlo", monospace;
+  }
+  html, body { background: var(--bg); }
+  .reveal { font-family: var(--sans); color: var(--fg); }
+  .reveal .slides { text-align: left; }
+  .reveal .slides section { width: 960px; height: 540px; padding: 0; }
+
+  .x { position: absolute; box-sizing: border-box; margin: 0; }
+
+  .h { left: 43px; top: 27px; width: 756px; height: 34px; font-size: 28px; font-weight: bold; line-height: 34px; white-space: nowrap; }
+  .rule { left: 43px; top: 66px; width: 871px; height: 1px; background: var(--rule); }
+  .num { left: 885px; top: 505px; width: 28px; height: 14px; font-size: 10px; line-height: 14px; color: var(--muted); text-align: right; }
+
+  ul.bl { list-style: none; padding: 2px; }
+  ul.bl li { position: relative; padding-left: 1.1em; line-height: 1.38; margin-bottom: 6px; }
+  ul.bl b { font-weight: bold; }
+  ul.bl li::before { content: "•"; position: absolute; left: 0; }
+  ul.bl code, .note code { font-family: var(--mono); font-size: 0.92em; }
+
+  .stack { left: 54px; top: 84px; width: 852px; height: 410px; display: flex; flex-direction: column; }
+  .stack > ul.bl { margin: 0; }
+  .fig { position: relative; margin: auto; flex: none; }
+  .fig.z { zoom: 1.25; }
+  .fig.flow { display: flex; gap: 24px; align-items: center; }
+  .fig.flow .code { position: static; }
+  .blk { display: flex; flex-direction: column; gap: 4px; }
+  .later { flex: none; color: var(--muted); font-size: 15px; line-height: 1.5; }
+  .later-h { font-weight: bold; margin-bottom: 2px; }
+  .later ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
+  .later li::before { content: "– "; }
+  .later code { font-family: var(--mono); font-size: 0.92em; }
+  .node { border: 1px solid var(--fg); background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; line-height: 1.25; font-size: 12px; }
+  .node.g { background: var(--panel); }
+  .node b { font-size: 15px; font-weight: bold; }
+  .node small { font-size: 12px; color: var(--muted); }
+
+  .code { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 8px; font-family: var(--mono); line-height: 1.3; white-space: pre; tab-size: 4; display: flex; align-items: center; overflow: hidden; }
+  .cap { font-size: 13px; color: var(--muted); line-height: 1.3; }
+  .lbl { font-size: 12px; font-weight: bold; color: var(--muted); line-height: 14px; }
+  .vline { width: 0; border-left: 1.1px solid var(--muted); }
+  .hline { height: 0; border-top: 1.1px solid var(--muted); }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- 1 -->
+<section>
+  <div class="x" style="left:82px;top:111px;width:619px;height:64px;font-size:36px;font-weight:bold;color:var(--title);display:flex;align-items:center">ccgoのひみつ</div>
+  <div class="x" style="left:82px;top:224px;width:374px;line-height:1.4">
+    <div style="font-size:20px;font-weight:bold;color:var(--title)">yebis0942</div>
+    <div style="font-size:16px;color:var(--sub)">2026-10-08</div>
+    <div style="font-size:16px;color:var(--sub)">Gophers Meetup 2026</div>
+  </div>
+  <div class="x num">1</div>
+  <aside class="notes">導入です。タイトルは ccgoのひみつ。今日は SQLite のコードを例に、ccgo が C のデータ構造をどう Go に持ち込むかを見ます。</aside>
+</section>
+
+<!-- 2 -->
+<section>
+  <h2 class="x h">Go Conference でも FFI が話題に</h2>
+  <div class="x rule"></div>
+  <img class="x" src="images/gocon2026-ffi-session.webp" alt="Go Conference 2026 のセッション「Go における FFI のこれまでとこれから」のページ" style="left:200px;top:86px;width:560px;height:350px;object-fit:cover;object-position:top;border:1px solid var(--rule)">
+  <div class="x cap" style="left:54px;top:478px;width:700px;font-size:13px">FFI: Foreign Function Interface</div>
+  <div class="x num">2</div>
+  <aside class="notes">FFI の話は今年の Go Conference でも話題になっていて、cgo を回避する方法はいろいろ提案されています。今日はそのうちの一つ、C のコードを丸ごと Go に変換してしまう ccgo の話をします。</aside>
+</section>
+
+<!-- 3 -->
+<section>
+  <div class="x" style="left:39px;top:72px;width:878px;height:374px;font-size:58px;font-weight:bold;display:flex;align-items:center;justify-content:center">ccgo is 何？</div>
+  <div class="x num">3</div>
+  <aside class="notes">まず問いだけ置きます。ccgo は何をしているのか。次のスライドから modernc.org/sqlite を入口にして説明します。</aside>
+</section>
+
+<!-- 4 -->
+<section>
+  <h2 class="x h">modernc.org/sqlite の裏側</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <div class="fig" style="width:400px;height:51px;margin:8px 0 24px">
+      <div class="x code" style="left:0px;top:0px;width:400px;height:51px;font-size:18px">import _ "modernc.org/sqlite"</div>
+    </div>
+    <ul class="bl" style="font-size:20px">
+      <li>cgo を使わずに SQLite を利用できる Go パッケージ</li>
+      <li>中身は、SQLite の C 言語ソースを ccgo で Go に変換した生成コード</li>
+      <li>変換は配布前に済んでいる。利用者は普通の Go パッケージとして import するだけ</li>
+      <li>CGO_ENABLED=0 のままビルド・クロスコンパイルできる</li>
+    </ul>
+  </div>
+  <div class="x num">4</div>
+  <aside class="notes">まず modernc.org/sqlite です。database/sql のドライバとして import するだけで使えて、cgo は要りません。中身は C の SQLite を ccgo で事前に Go へ変換したコードです。今日はその生成コード側を見ます。</aside>
+</section>
+
+<!-- 5 -->
+<section>
+  <h2 class="x h">SQLite を Go に変換するコンポーネント</h2>
+  <div class="x rule"></div>
+  <ul class="x bl" style="left:51px;top:96px;width:360px;font-size:20px">
+    <li>入力: SQLite の C 言語ソース</li>
+    <li>cc/v4: 構文解析と型・ABI 情報</li>
+    <li><b>ccgo/v4: Go コードを生成</b></li>
+    <li>libc: C 言語ランタイムの代わり</li>
+    <li>変換は配布前に完了</li>
+  </ul>
+  <div class="x node" style="left:435px;top:93px;width:399px;height:51px"><b>SQLite C source</b><small>sqlite3.c / headers</small></div>
+  <div class="x vline" style="left:635px;top:144px;height:17px"></div>
+  <div class="x node" style="left:435px;top:161px;width:399px;height:51px"><b>modernc.org/cc/v4</b><small>C parser + type / ABI information</small></div>
+  <div class="x vline" style="left:635px;top:212px;height:16px"></div>
+  <div class="x node g" style="left:435px;top:228px;width:399px;height:51px;border-width:3px"><b style="font-size:17px">modernc.org/ccgo/v4</b><small>C → Go transpilation</small></div>
+  <div class="x vline" style="left:635px;top:279px;height:17px"></div>
+  <div class="x node" style="left:435px;top:296px;width:399px;height:51px"><b>generated Go + modernc.org/libc</b><small>translated code + runtime support</small></div>
+  <div class="x vline" style="left:635px;top:347px;height:17px"></div>
+  <div class="x node" style="left:435px;top:364px;width:399px;height:51px"><b>modernc.org/sqlite</b><small>driver / package consumed by Go programs</small></div>
+  <div class="x cap" style="left:435px;top:450px;width:399px">今回見るのは、ccgo が生成した Go コードのデータ構造まわり</div>
+  <div class="x num">5</div>
+  <aside class="notes">変換の流れです。SQLite の C ソースを読み、C の構文や型や ABI に関する情報を持った上で、Go コードへ落とします。そのうえで補助ランタイムを足して、modernc.org/sqlite という形で使えるようにします。</aside>
+</section>
+
+<!-- 6 -->
+<section>
+  <h2 class="x h">今回見るもの</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li>C 言語の struct / union / bit-field が、生成コードでどう表現されるか</li>
+      <li>ccgo は Go らしい型よりも、C 言語のメモリ配置を保つことを優先する</li>
+      <li>C 言語のポインタは、Go では <code>uintptr</code> になる</li>
+    </ul>
+    <div class="fig" style="width:600px;height:150px">
+      <div class="x node" style="left:0;top:0;width:160px;height:46px;font-size:16px"><b>struct</b></div>
+      <div class="x node g" style="left:159px;top:0;width:441px;height:46px;font-size:16px">フィールドの offset と要素サイズ</div>
+      <div class="x node" style="left:0;top:52px;width:160px;height:46px;font-size:16px"><b>union</b></div>
+      <div class="x node g" style="left:159px;top:52px;width:441px;height:46px;font-size:16px">全メンバが同じ先頭アドレス</div>
+      <div class="x node" style="left:0;top:104px;width:160px;height:46px;font-size:16px"><b>bit-field</b></div>
+      <div class="x node g" style="left:159px;top:104px;width:441px;height:46px;font-size:16px">整数の中の bit 位置</div>
+    </div>
+  </div>
+  <div class="x num">6</div>
+  <aside class="notes">今日はデータ構造に絞ります。struct、union、bit-field の 3 つです。ccgo が守ろうとしているのは C のメモリ配置で、そのために C のポインタは uintptr として扱われます。出てくる数値は v1.60.1 の darwin/arm64 版のものです。</aside>
+</section>
+
+<!-- 7 -->
+<section>
+  <h2 class="x h">C 言語の struct: sqlite3_value</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li>sqlite3_value は SQL の値 1 つを表す struct</li>
+      <li>フィールドは宣言順に並び、アラインメントに合わせて配置される</li>
+      <li>コメントの数字が各フィールドの offset（64 bit 環境）</li>
+    </ul>
+    <div class="fig z flow">
+      <div class="code" style="font-size:13px">struct sqlite3_value {
+  union MemValue u;   /*  0 */
+  char *z;            /*  8 */
+  int n;              /* 16 */
+  u16 flags;          /* 20 */
+  u8  enc;            /* 22 */
+  u8  eSubtype;       /* 23 */
+  sqlite3 *db;        /* 24 */
+  /* … */
+};</div>
+    </div>
+  </div>
+  <div class="x num">7</div>
+  <aside class="notes">struct の例は sqlite3_value です。SQL の値 1 つを表す構造体で、このあと出てくる union の MemValue もこの中にあります。C ではフィールドが宣言順に並び、各フィールドの offset が決まります。</aside>
+</section>
+
+<!-- 8 -->
+<section>
+  <h2 class="x h">ccgo の struct: Go の struct になる</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li>C 言語の struct は Go の struct になる。フィールド名に <code>F</code>、型名に <code>T</code> が付く</li>
+      <li>ポインタは型を問わず <code>uintptr</code>（<code>char *</code> も <code>sqlite3 *</code> も）</li>
+      <li><code>uintptr</code> を struct のポインタに変換して、フィールドを読む</li>
+      <li>offset とサイズは C 言語と一致する（<code>Fflags</code> は 20、全体は 56 byte）</li>
+    </ul>
+    <div class="fig z flow">
+      <div class="code" style="font-size:13px">type Tsqlite3_value = struct {
+	Fu        TMemValue
+	Fz        uintptr
+	Fn        int32
+	Fflags    Tu16
+	Fenc      Tu8
+	FeSubtype Tu8
+	Fdb       uintptr
+	// …
+}</div>
+      <div class="blk">
+        <div class="cap">sqlite3_bind_value より</div>
+        <div class="code" style="font-size:13px">libc.Int32FromUint16(
+	(*Tsqlite3_value)(unsafe.Pointer(pValue)).Fflags)</div>
+      </div>
+    </div>
+  </div>
+  <div class="x num">8</div>
+  <aside class="notes">生成コードでは C の struct がそのまま Go の struct になります。ポインタはすべて uintptr で、使うときに struct のポインタへ変換してフィールドを読みます。unsafe.Offsetof で測ると flags は 20、全体は 56 byte で、C と同じ配置です。配置がずれる場合、ccgo はパディング用やアラインメント用のフィールドを足して合わせます。</aside>
+</section>
+
+<!-- 9 -->
+<section>
+  <h2 class="x h">C 言語の union: MemValue</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li>sqlite3_value は SQL の値を 1 つ保持する</li>
+      <li>union の各メンバは同じ場所を共有する。大きさは最大のメンバに合わせる</li>
+      <li><code>flags</code> の <code>MEM_Int</code> / <code>MEM_Real</code> などを見て、どのメンバとして読むかを決める</li>
+    </ul>
+    <div class="fig z" style="width:620px;height:125px">
+      <div class="x code" style="left:0;top:4px;width:250px;height:115px;font-size:13px">union MemValue {
+  double r;
+  i64 i;
+  int nZero;
+  const char *zPType;
+  FuncDef *pDef;
+} u;</div>
+      <div class="x lbl" style="left:296px;top:0;width:324px">union のイメージ</div>
+      <div class="x" style="left:296px;top:12px;width:115px;font-size:12px;line-height:18px;text-align:right">r: double</div>
+      <div class="x" style="left:296px;top:37px;width:115px;font-size:12px;line-height:18px;text-align:right">i: i64</div>
+      <div class="x" style="left:296px;top:62px;width:115px;font-size:12px;line-height:18px;text-align:right">nZero: int</div>
+      <div class="x" style="left:296px;top:87px;width:115px;font-size:12px;line-height:18px;text-align:right">zPType / pDef</div>
+      <svg class="x" style="left:296px;top:0;overflow:visible;pointer-events:none" width="324" height="125" viewBox="0 0 324 125">
+        <g stroke="#646464" stroke-width="1.3" fill="none">
+          <line x1="120" y1="21" x2="149" y2="65"/>
+          <line x1="120" y1="46" x2="149" y2="65"/>
+          <line x1="120" y1="71" x2="149" y2="65"/>
+          <line x1="120" y1="96" x2="149" y2="65"/>
+        </g>
+      </svg>
+      <div class="x node g" style="left:447px;top:33px;width:158px;height:64px"><b style="font-size:14px">共有する 8 byte</b></div>
+      <div class="x cap" style="left:296px;top:108px;width:324px">flags が「いま何として読むか」を決める</div>
+    </div>
+  </div>
+  <div class="x num">9</div>
+  <aside class="notes">union の例は MemValue です。整数と実数を別々に持つのではなく、同じ 8 byte を用途に応じて使い分けます。どれとして読むかは、別に持っている flags で判断します。</aside>
+</section>
+
+<!-- 10 -->
+<section>
+  <h2 class="x h">ccgo の union: ゼロ長配列で表す</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li><code>[0]T</code> のフィールドはサイズ 0。全員が offset 0 に並ぶ</li>
+      <li>実体を持つのは <code>Fr float64</code> の 8 byte だけ</li>
+      <li>読むときは先頭アドレスを目的の型のポインタに変換する</li>
+      <li><code>u</code> は sqlite3_value の先頭にあるので offset の加算がない</li>
+    </ul>
+    <div class="fig z flow">
+      <div class="code" style="font-size:13px">type TMemValue = struct {
+	Fi      [0]int64
+	FnZero  [0]int32
+	FzPType [0]uintptr
+	FpDef   [0]uintptr
+	Fr      float64
+}</div>
+      <div class="blk">
+        <div class="cap">sqlite3_bind_value より（整数のとき）</div>
+        <div class="code" style="font-size:13px">*(*Ti64)(unsafe.Pointer(pValue))</div>
+        <div class="cap" style="margin-top:6px">同じ関数内（実数のとき）</div>
+        <div class="code" style="font-size:13px">*(*float64)(unsafe.Pointer(pValue))</div>
+      </div>
+    </div>
+  </div>
+  <div class="x num">10</div>
+  <aside class="notes">Go には union がないので、ccgo はゼロ長配列を使います。Fi や FnZero はサイズ 0 で、すべて同じ offset 0 に乗ります。実際に読むときは Fi[0] ではなく、先頭アドレスを int64 のポインタとして読みます。数値変換ではなく、同じ bytes の読み替えです。</aside>
+</section>
+
+<!-- 11 -->
+<section>
+  <h2 class="x h">C 言語の bit-field: SrcItem.fg</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li><code>unsigned x:1</code> は 1 bit のフィールド。FROM 句の要素の属性を 1 つの整数に詰める</li>
+      <li>C 言語ではふつうのフィールドとして読み書きでき、mask / shift はコンパイラが生成する</li>
+      <li>Go で書くなら <code>flags uint32</code> と <code>const isSubquery = 1 &lt;&lt; 2</code> の組み合わせに当たる</li>
+    </ul>
+    <div class="fig flow" style="gap:48px">
+      <div class="code" style="font-size:15px">struct {
+  u8 jointype;
+  unsigned notIndexed  :1;
+  unsigned isIndexedBy :1;
+  unsigned isSubquery  :1;
+  /* … */
+} fg;
+
+pItem-&gt;fg.isSubquery = 1;</div>
+      <div style="position:relative;width:440px;height:236px">
+        <div class="x lbl" style="left:0;top:0;width:440px;font-size:15px;line-height:20px">fg の配置（8 byte）</div>
+        <div class="x cap" style="left:0px;top:28px;width:60px;font-size:15px">+0</div>
+        <div class="x cap" style="left:89px;top:28px;width:60px;font-size:15px">+1</div>
+        <div class="x cap" style="left:188px;top:28px;width:60px;font-size:15px">+4</div>
+        <div class="x node" style="left:0px;top:50px;width:90px;height:50px;font-size:15px">jointype</div>
+        <div class="x node g" style="left:89px;top:50px;width:100px;height:50px;font-size:15px">padding</div>
+        <div class="x node" style="left:188px;top:50px;width:232px;height:50px;font-size:15px">32 bit の整数</div>
+        <svg class="x" style="left:0;top:0;overflow:visible;pointer-events:none" width="440" height="236" viewBox="0 0 440 236"><g stroke="#646464" stroke-width="1.2" stroke-dasharray="4 3" fill="none"><line x1="188" y1="100" x2="188" y2="132"/><line x1="420" y1="100" x2="420" y2="132"/></g></svg>
+        <div class="x node" style="left:188.0px;top:132px;width:47px;height:46px;font-size:15px">b0</div>
+        <div class="x node" style="left:234.4px;top:132px;width:47px;height:46px;font-size:15px">b1</div>
+        <div class="x node" style="left:280.8px;top:132px;width:47px;height:46px;font-size:15px;background:var(--fg);color:var(--bg)">b2</div>
+        <div class="x node" style="left:327.2px;top:132px;width:47px;height:46px;font-size:15px">b3</div>
+        <div class="x node g" style="left:373.6px;top:132px;width:47px;height:46px;font-size:15px">…</div>
+        <div class="x cap" style="left:188px;top:188px;width:260px;font-size:15px">b2 = isSubquery</div>
+      </div>
+    </div>
+  </div>
+  <div class="x num">11</div>
+  <aside class="notes">bit-field の例は SrcItem.fg です。FROM 句の要素に付く属性を 1 bit ずつ詰めていて、たとえば bit 2 の isSubquery は、テーブルではなくサブクエリであることを表します。C では pItem-&gt;fg.isSubquery = 1 のように普通のフィールドとして書けて、mask や shift はコンパイラが裏で生成します。Go でいえば、flags uint32 に const で bit を定義して手でビット演算するのと同じことです。なお jointype の後ろに 3 byte のパディングがあり、bit を詰める整数は +4 から始まります。</aside>
+</section>
+
+<!-- 12 -->
+<section>
+  <h2 class="x h">ccgo の bit-field: 整数と mask になる</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li>コンパイラが隠していた mask / shift を、ccgo は Go のコードとして書き出す</li>
+      <li>bit-field の名前は消え、<code>F__ccgo4 uint32</code> 1 つにまとめられる</li>
+      <li><code>+24</code> で fg、<code>+4</code> で整数。読むときは mask して右シフト、書くときは libc のヘルパーが対象 bit だけを更新する</li>
+    </ul>
+    <div class="fig z flow">
+      <div class="code" style="font-size:13px">Ffg struct {
+	Fjointype Tu8
+	F__ccgo4  uint32
+}</div>
+      <div class="blk">
+        <div class="cap">読み出し（isSubquery）</div>
+        <div class="code" style="font-size:13px">*(*uint32)(unsafe.Pointer(pItem + 24 + 4))&amp;0x4&gt;&gt;2</div>
+        <div class="cap" style="margin-top:6px">書き込み（isSubquery = 1）</div>
+        <div class="code" style="font-size:13px">libc.SetBitFieldPtr32Uint32(pItem+24+4,
+	libc.Uint32FromInt32(1), 2, 0x4)</div>
+      </div>
+    </div>
+  </div>
+  <div class="x num">12</div>
+  <aside class="notes">C ではコンパイラが隠していたビット演算を、ccgo は Go のコードとして書き出します。生成型では bit-field の名前は消えて、F__ccgo4 という uint32 になります。読むときは 0x4 で mask して 2 bit 右シフト、書くときは libc のヘルパーが read-modify-write で隣の bit を壊さずに書き換えます。</aside>
+</section>
+
+<!-- 13 -->
+<section>
+  <h2 class="x h">uintptr とメモリの寿命</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li>SQLite の標準 allocator は、匿名 mmap で確保した Go ヒープ外の領域を使う</li>
+      <li>Go の GC はこの領域を移動も回収もしない。寿命は SQLite / libc が管理する</li>
+      <li>free 後はアクセスできず、realloc では領域が移ることがある。ここは C 言語と同じ</li>
+      <li>Go が管理するオブジェクトのポインタを <code>uintptr</code> にして保持する真似はしない</li>
+    </ul>
+    <div class="fig" style="width:808px;height:72px">
+      <div class="x node" style="left:0px;top:0;width:190px;height:72px"><b>SQLite</b><small>_sqlite3MemMalloc</small></div>
+      <div class="x node g" style="left:206px;top:0;width:190px;height:72px"><b>modernc.org/libc</b><small>Xmalloc</small></div>
+      <div class="x node g" style="left:412px;top:0;width:190px;height:72px"><b>modernc.org/memory</b><small>Allocator</small></div>
+      <div class="x node" style="left:618px;top:0;width:190px;height:72px"><b>匿名 mmap</b><small>Go ヒープ外</small></div>
+      <div class="x hline" style="left:190px;top:36px;width:16px"></div>
+      <div class="x hline" style="left:396px;top:36px;width:16px"></div>
+      <div class="x hline" style="left:602px;top:36px;width:16px"></div>
+    </div>
+  </div>
+  <div class="x num">13</div>
+  <aside class="notes">ここまで uintptr でポインタ演算をしてきましたが、これが成り立つのは、メモリが Go ヒープの外にあるからです。libc の allocator が mmap した領域なので、GC は動かしも回収もしません。逆に、Go のオブジェクトのポインタを uintptr で持ち回るのは GC から見えなくなるので危険です。realloc が成功したら返されたアドレスを使い、失敗したときは古い領域が残る、というのも C と同じです。libc v1.77.1 の通常ビルドで、darwin/arm64 と linux/amd64 を確認しました。</aside>
+</section>
+
+<!-- 14 -->
+<section>
+  <h2 class="x h">まとめ</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li>struct: Go の struct になり、ポインタは <code>uintptr</code> で持つ</li>
+      <li>union: ゼロ長配列で同じ offset を表し、同じ bytes を別の型として読む</li>
+      <li>bit-field: 名前は消え、整数を mask / shift で読み書きする</li>
+      <li>生成コードの奇妙な型や数字は、C 言語の配置と対応させると読める</li>
+    </ul>
+    <div class="fig z flow">
+      <div class="code" style="font-size:13px">Fz uintptr   → C 言語のポインタ
+Fi [0]int64  → union の同じ offset
+&amp;0x4&gt;&gt;2      → bit 2 の取り出し</div>
+    </div>
+    <div class="later">
+      <div class="later-h">扱えなかったおもしろトピック</div>
+      <ul>
+        <li>関数ポインタ: <code>uintptr</code> で持ち、func 型に変換して呼ぶ</li>
+        <li>可変長引数: <code>libc.VaList</code> でまとめて渡す</li>
+        <li>アドレスを取られるローカル変数: <code>tls.Alloc</code> で確保する</li>
+        <li>定数マクロ: Go の <code>const</code> になる</li>
+        <li>GOOS / GOARCH ごとに別の生成コードを持つ</li>
+      </ul>
+    </div>
+  </div>
+  <div class="x num">14</div>
+  <aside class="notes">まとめです。生成コードの型や数字は、元の C のメモリ配置と対応させると読めます。cgo なしで動く SQLite の中にも、C 由来のメモリ表現と寿命管理がそのまま残っています。今日は触れませんでしたが、関数ポインタや可変長引数、ローカル変数のアドレスの扱いなど、ccgo にはほかにも面白い変換がたくさんあります。</aside>
+</section>
+
+
+<!-- 15 -->
+<section>
+  <h2 class="x h">おまけ: 末尾の可変長配列（FLEXARRAY）</h2>
+  <div class="x rule"></div>
+  <div class="x stack">
+    <ul class="bl" style="font-size:20px">
+      <li>SrcList の <code>a</code> は柔軟配列メンバ。ヘッダの直後に要素が続く</li>
+      <li>生成された <code>TSrcList</code> には <code>a</code> がない（要素数が実行時に決まる）</li>
+      <li><code>a[i]</code> は「先頭 + 8 + i × 80」のアドレス計算になる</li>
+      <li><code>[0]uint64</code> は、サイズ 0 のまま 8 byte のアラインメントだけを補う</li>
+    </ul>
+    <div class="fig z flow" style="zoom:1.15">
+      <div class="code" style="font-size:13px">struct SrcList {
+  int nSrc;
+  u32 nAlloc;
+  SrcItem a[FLEXARRAY];
+};</div>
+      <div class="blk">
+        <div class="code" style="font-size:13px">type TSrcList = struct {
+	F__ccgo_align [0]uint64
+	FnSrc         int32
+	FnAlloc       Tu32
+}</div>
+        <div class="code" style="font-size:13px;margin-top:6px">pItem = pTabList + 8 + uintptr(v1)*80</div>
+      </div>
+    </div>
+  </div>
+  <div class="x num">15</div>
+  <aside class="notes">おまけです。SrcList は FROM 句の入力元一覧で、8 byte のヘッダの直後に 80 byte の SrcItem が並ぶ柔軟配列メンバを持ちます。ccgo は柔軟配列メンバを Go の struct から外し、a[i] へのアクセスを先頭 + 8 + 添字 × 80 のアドレス計算として生成します。外す理由はソースに書かれていませんが、末尾にサイズ 0 のフィールドを置くと Go が struct の末尾にパディングを足してサイズが C とずれるため、と考えられます。</aside>
+</section>
+
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/plugin/notes/notes.min.js"></script>
+<script>
+  Reveal.initialize({
+    width: 960,
+    height: 540,
+    margin: 0.04,
+    center: false,
+    hash: true,
+    controlsLayout: 'edges',
+    transition: 'none',
+    backgroundTransition: 'none',
+    plugins: [RevealNotes],
+  });
+</script>
+</body>
+</html>
