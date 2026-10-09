@@ -418,11 +418,12 @@ Fi [0]int64  → union の同じ offset
 
 <!-- 15 -->
 <section>
-  <h2 class="x h">おまけ: 末尾の可変長配列（FLEXARRAY）</h2>
+  <h2 class="x h">おまけ: struct 末尾の可変長配列</h2>
   <div class="x rule"></div>
   <div class="x stack">
     <ul class="bl" style="font-size:20px">
-      <li>SrcList の <code>a</code> は柔軟配列メンバ。ヘッダの直後に要素が続く</li>
+      <li><code>a[FLEXARRAY]</code> は C99 の <code>a[]</code>（要素数なしの末尾配列）。<code>FLEXARRAY</code> は古いコンパイラ対応のための SQLite のマクロ</li>
+      <li>struct の末尾に置き、要素数ぶん余分に malloc してヘッダの直後に並べる</li>
       <li>生成された <code>TSrcList</code> には <code>a</code> がない（要素数が実行時に決まる）</li>
       <li><code>a[i]</code> は「先頭 + 8 + i × 80」のアドレス計算になる</li>
       <li><code>[0]uint64</code> は、サイズ 0 のまま 8 byte のアラインメントだけを補う</li>
@@ -431,7 +432,7 @@ Fi [0]int64  → union の同じ offset
       <div class="code" style="font-size:13px">struct SrcList {
   int nSrc;
   u32 nAlloc;
-  SrcItem a[FLEXARRAY];
+  SrcItem a[FLEXARRAY]; /* → a[] */
 };</div>
       <div class="blk">
         <div class="code" style="font-size:13px">type TSrcList = struct {
@@ -444,7 +445,7 @@ Fi [0]int64  → union の同じ offset
     </div>
   </div>
   <div class="x num">15</div>
-  <aside class="notes">おまけです。SrcList は FROM 句の入力元一覧で、8 byte のヘッダの直後に 80 byte の SrcItem が並ぶ柔軟配列メンバを持ちます。ccgo は柔軟配列メンバを Go の struct から外し、a[i] へのアクセスを先頭 + 8 + 添字 × 80 のアドレス計算として生成します。外す理由はソースに書かれていませんが、末尾にサイズ 0 のフィールドを置くと Go が struct の末尾にパディングを足してサイズが C とずれるため、と考えられます。</aside>
+  <aside class="notes">おまけです。SrcList は FROM 句の入力元一覧です。最後のメンバ a は、要素数を書かない配列 a[] で、C99 の flexible array member という言語機能です。FLEXARRAY は SQLite のマクロで、C99 以降では空、古いコンパイラでは 1 に展開して a[1] にするための互換用です。struct の末尾にだけ置けて、malloc のときに必要な要素数ぶん余分に確保し、8 byte のヘッダの直後に 80 byte の SrcItem を並べて使います。ccgo はこの末尾の配列を Go の struct から外し、a[i] へのアクセスを先頭 + 8 + 添字 × 80 のアドレス計算として生成します。外す理由はソースに書かれていませんが、末尾にサイズ 0 のフィールドを置くと Go が struct の末尾にパディングを足してサイズが C とずれるため、と考えられます。</aside>
 </section>
 
 </div></div>
